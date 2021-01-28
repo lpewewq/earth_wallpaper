@@ -11,9 +11,10 @@ uninstall:
 	systemctl --user daemon-reload
 
 install:
-	cp earth_wallpaper.sh $(USER_BIN)
+	mkdir -p $(USER_BIN)
 	mkdir -p $(SYSTEMD_USER_DIR)
 	mkdir -p $(CONFIG_DIR)
+	cp earth_wallpaper.sh $(USER_BIN)
 	cp earth_wallpaper.service $(SYSTEMD_USER_DIR)
 	cp earth_wallpaper.config "$(CONFIG_DIR)"
 	systemctl --user daemon-reload
