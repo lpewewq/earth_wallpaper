@@ -2,5 +2,7 @@ venv
 jma
 data
 earth_wallpaper
+earth_wallpaper.service
 wallpaper.png
+404.png
 *.pyc
