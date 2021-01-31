@@ -1,10 +1,8 @@
 [Unit]
-Description=Wallpaper update service
-After=network-online.target
-Wants=network-online.target
+Description=Earth wallpaper update script
 
 [Service]
-ExecStart=%h/.local/bin/earth_wallpaper.sh
+ExecStart=%h/.config/earth_wallpaper/earth_wallpaper.sh
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
