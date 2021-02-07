@@ -1,18 +1,14 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask, request, send_file, abort
-from ptree import PTree
 from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import Path
-import atexit
-import time
+
+import pytz
+from flask import Flask, abort, request, send_file
 from PIL import Image
 
-POLL_OFFSET_MINUTES = 20
-POLL_INTERVAL_MINUTES = 10
-POLL_RETRY_SECONDS = 60
+from scheduler import Scheduler
 
-DATA_DIR = Path("data")
-
+satelite_tz = pytz.timezone("Asia/Jayapura")
 valid_resolutions = {
     "4K": (3840, 2160),
     "WQHD": (2560, 1440),
@@ -22,50 +18,7 @@ valid_resolutions = {
 }
 
 app = Flask(__name__)
-ptree = PTree()
-sched = BackgroundScheduler(daemon=True)
-atexit.register(lambda: sched.shutdown(wait=False))
-current_earth_file = None
-
-
-def download():
-    global current_earth_file
-    earth_file = None
-    while earth_file is None:
-        date = datetime.utcnow() - timedelta(minutes=POLL_OFFSET_MINUTES)
-        earth_file = ptree.download_full_disk(date, DATA_DIR)
-        if earth_file is None:
-            print("Retry")
-            time.sleep(POLL_RETRY_SECONDS)
-    # precompute all wallpapers
-    for _, resolution in valid_resolutions.items():
-        wallpaper_path = earth_file.parent.joinpath(f"earth_{resolution}.png")
-        build_wallpaper(earth_file, resolution).save(wallpaper_path)
-    current_earth_file = earth_file
-    print("Success")
-
-
-sched.add_job(
-    download, "interval", minutes=POLL_INTERVAL_MINUTES, next_run_time=datetime.now()
-)
-sched.start()
-
-
-def build_wallpaper(earth_file, resolution):
-    original_img = Image.open(earth_file)
-    # Resize original image, then create wallpaper
-    resized_img = original_img.resize(resolution, Image.ANTIALIAS)
-    resize_size = int(0.8 * min(resolution))
-    resized_img = original_img.resize((resize_size, resize_size), Image.ANTIALIAS)
-    wallpaper_img = Image.new("RGB", resolution)
-    wallpaper_img.paste(
-        resized_img,
-        (
-            int((resolution[0] - resized_img.size[0]) / 2),
-            int((resolution[1] - resized_img.size[1]) / 2),
-        ),
-    )
-    return wallpaper_img
+scheduler = Scheduler()
 
 
 @app.route("/")
@@ -78,9 +31,46 @@ def get_earth_wallpaper():
     if resolution is None:
         abort(400, f"resolution must be one of {list(valid_resolutions.keys())}")
 
+    # parse timezone offset
+    try:
+        local_tz = pytz.timezone(request.args.get("timezone"))
+        utc_tz_offset = (
+            satelite_tz.utcoffset(datetime.now()) - local_tz.utcoffset(datetime.now())
+        ).seconds // 3600
+    except pytz.exceptions.UnknownTimeZoneError:
+        utc_tz_offset = 0
+
+    # parse and clamp zoom
+    try:
+        zoom = float(request.args.get("zoom", 1.0))
+    except ValueError:
+        zoom = 1.0
+    zoom = 0.5 + 0.5 * min(1.0, max(0.0, zoom))
+
     # build wallpaper
-    if current_earth_file is not None:
-        wallpaper_path = current_earth_file.parent.joinpath(f"earth_{resolution}.png")
-        if wallpaper_path.exists():
-            return send_file(wallpaper_path, mimetype="image/png")
+    current_date = scheduler.current_fetch_date
+    if current_date is not None:
+        current_date -= timedelta(hours=utc_tz_offset)
+        earth_file = scheduler.get_file_destination(current_date)
+        if earth_file.exists():
+            wallpaper = build_wallpaper(earth_file, resolution, zoom)
+            image_data = BytesIO()
+            wallpaper.save(image_data, format="png")
+            image_data.seek(0)
+            return send_file(image_data, mimetype="image/png")
     return send_file("404.png", mimetype="image/png")
+
+
+def build_wallpaper(earth_file, resolution, zoom):
+    resize_size = int(zoom * min(resolution))
+    masked_earth = Image.open(earth_file)
+    masked_earth = masked_earth.resize((resize_size, resize_size), Image.ANTIALIAS)
+    wallpaper = Image.new("RGB", resolution)
+    wallpaper.paste(
+        masked_earth,
+        (
+            int((resolution[0] - masked_earth.size[0]) / 2),
+            int((resolution[1] - masked_earth.size[1]) / 2),
+        ),
+    )
+    return wallpaper
