@@ -39,11 +39,7 @@ class Scheduler:
             Path(f"{d.year}{d.month:02d}")
             .joinpath(Path(f"{d.day:02d}"))
             .joinpath(Path(f"{d.hour:02d}"))
-            .joinpath(
-                Path(
-                    f"PI_H08_{d.year}{d.month:02d}{d.day:02d}_{d.hour:02d}{d.minute:02d}_TRC_FLDK_R10_PGPFD.png"
-                )
-            )
+            .joinpath(Path(f"PI_H08_{d.year}{d.month:02d}{d.day:02d}_{d.hour:02d}{d.minute:02d}_TRC_FLDK_R10_PGPFD.png"))
         )
 
     def get_file_destination(self, d: datetime) -> Path:
@@ -60,11 +56,7 @@ class Scheduler:
             file_destination = self.get_file_destination(fetch_date)
 
             # check if image is still up to date
-            if (
-                file_destination.exists()
-                and datetime.fromtimestamp(file_destination.stat().st_mtime).day
-                == fetch_date.day
-            ):
+            if file_destination.exists() and datetime.fromtimestamp(file_destination.stat().st_mtime).day == fetch_date.day:
                 self.current_fetch_date = fetch_date
                 break
 

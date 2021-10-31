@@ -11,13 +11,9 @@ class PTree:
 
     def __init__(self):
         self.username = os.environ.get("PTREE_USERNAME")
-        assert (
-            self.username is not None
-        ), "PTREE_USERNAME not found in system environment."
+        assert self.username is not None, "PTREE_USERNAME not found in system environment."
         self.password = os.environ.get("PTREE_PASSWORD")
-        assert (
-            self.password is not None
-        ), "PTREE_PASSWORD not found in system environment."
+        assert self.password is not None, "PTREE_PASSWORD not found in system environment."
 
     def _download(self, file: Path) -> BytesIO:
         try:
