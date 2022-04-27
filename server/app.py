@@ -1,96 +1,110 @@
 from datetime import datetime, timedelta
 from io import BytesIO
-from shutil import make_archive
 import pytz
-from flask import Flask, abort, request, send_file
+import regex as re
+from fastapi import FastAPI, Query, Response, exceptions
 from PIL import Image, ImageDraw
+from enum import Enum
 
 from scheduler import Scheduler
 from skyfield_wallpaper import SkyFieldWallpaper
 
 satelite_tz = pytz.timezone("Asia/Jayapura")
-valid_resolutions = {
-    "4K": (3840, 2160),
-    "WQHD": (2560, 1440),
-    "WUXGA": (1920, 1200),
-    "HD": (1920, 1080),
-    "FHD": (1366, 768),
-}
+Timezone = Enum("Timezone", ((x, x) for x in pytz.all_timezones))
 
-app = Flask(__name__)
+
+class Resolution(str, Enum):
+    UHD_4K = "4K"
+    WQHD = "WQHD"
+    WUXGA = "WUXGA"
+    HD = "HD"
+    FHD = "FHD"
+
+    @property
+    def width(self):
+        if self == Resolution.UHD_4K:
+            return 3840
+        elif self == Resolution.WQHD:
+            return 2560
+        elif self == Resolution.WUXGA:
+            return 1920
+        elif self == Resolution.HD:
+            return 1920
+        elif self == Resolution.FHD:
+            return 1366
+
+    @property
+    def height(self):
+        if self == Resolution.UHD_4K:
+            return 2160
+        elif self == Resolution.WQHD:
+            return 1440
+        elif self == Resolution.WUXGA:
+            return 1200
+        elif self == Resolution.HD:
+            return 1080
+        elif self == Resolution.FHD:
+            return 768
+
+
+app = FastAPI()
 scheduler = Scheduler()
 skyfield_wallpaper = SkyFieldWallpaper()
 
 
-@app.route("/")
-def get_earth_wallpaper():
-    # parse wallpaper resolution
-    default_resolution = list(valid_resolutions.keys()).pop()
-    resolution = valid_resolutions.get(request.args.get("resolution", default_resolution).upper())
-    if resolution is None:
-        abort(400, f"resolution must be one of {list(valid_resolutions.keys())}")
-
-    # parse timezone offset
-    try:
-        local_tz = pytz.timezone(request.args.get("timezone"))
-        utc_tz_offset = (satelite_tz.utcoffset(datetime.now()) - local_tz.utcoffset(datetime.now())).seconds // 3600
-    except pytz.exceptions.UnknownTimeZoneError:
-        utc_tz_offset = 0
-
-    # parse and clamp zoom
-    try:
-        zoom = float(request.args.get("zoom", 0.7))
-    except ValueError:
-        zoom = 1.0
-    zoom = 0.5 + 0.5 * min(1.0, max(0.0, zoom))
-
+@app.get("/")
+async def earth_wallpaper(
+    resolution: Resolution = Query(Resolution("4K")),
+    timezone: Timezone = Query(Timezone("Europe/Berlin")),
+    zoom: float = Query(0.7, ge=0.0, le=1.0),
+    fov: int = Query(70, ge=30, le=180),
+    stars: float = Query(0.5, ge=0.0, le=1.0),
+    constellations: float = Query(0.05, ge=0.0, le=1.0),
+):
     # build wallpaper
     current_date = scheduler.current_fetch_date
-    if current_date is not None:
-        current_date -= timedelta(hours=utc_tz_offset)
-        earth_file = scheduler.get_file_destination(current_date)
-        print("UTC", datetime.now(), resolution)
-        if earth_file.exists():
-            wallpaper = build_wallpaper(earth_file, resolution, zoom, current_date)
-            image_data = BytesIO()
-            wallpaper.save(image_data, format="png")
-            image_data.seek(0)
-            return send_file(image_data, mimetype="image/png")
-    return send_file("404.png", mimetype="image/png")
+    if current_date is None:
+        raise exceptions.HTTPException(404)
+
+    # parse timezone offset
+    now = datetime.now()
+    current_date -= satelite_tz.utcoffset(now) - pytz.timezone(timezone.value).utcoffset(now)
+    earth_file = scheduler.get_file_destination(current_date)
+    if not earth_file.exists():
+        raise exceptions.HTTPException(404)
+
+    wallpaper = build_wallpaper(earth_file, resolution, zoom, current_date, fov, stars, constellations)
+    image_data = BytesIO()
+    wallpaper.save(image_data, format="png")
+    return Response(image_data.getvalue(), media_type="image/png")
 
 
-def build_wallpaper(earth_file, resolution, zoom, current_date):
-    width, height = resolution
-    resize_size = int(zoom * min(resolution))
+def build_wallpaper(
+    earth_file,
+    resolution: Resolution,
+    zoom: float,
+    current_date: datetime,
+    fov: int,
+    stars_scaling: float,
+    constellation_alpha: float,
+):
+    width, height = resolution.width, resolution.height
+    resize_size = int(zoom * min(width, height))
     masked_earth = Image.open(earth_file)
-    masked_earth.thumbnail((resize_size, resize_size), Image.ANTIALIAS)
-    wallpaper = Image.new("RGBA", resolution, color="black")
+    masked_earth.thumbnail((resize_size, resize_size), Image.Resampling.LANCZOS)
+    wallpaper = Image.new("RGBA", (width, height), color="black")
 
     # get astro data
-    try:
-        fov = float(request.args.get("fov", 70))
-    except ValueError:
-        fov = 70
-    fov = min(180, max(30, fov))
     observed_stars, observed_constellations = skyfield_wallpaper.stereographic_projection(current_date, width, height, fov)
 
     # draw dots for stars
-    try:
-        stars_scaling = float(request.args.get("stars", 0.5))
-    except ValueError:
-        stars_scaling = 0.5
-    stars_scaling = min(1.0, max(0.0, stars_scaling))
     draw = ImageDraw.Draw(wallpaper)
     for _, star in observed_stars.iterrows():
         s = star.s * stars_scaling  # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
 
     # draw lines for constellations
-    try:
-        constellation_alpha = float(request.args.get("constellations", 0.05))
-    except ValueError:
-        constellation_alpha = 0.05
-    constellation_alpha = int(min(1.0, max(0.0, constellation_alpha)) * 255)
+    constellation_alpha = int(constellation_alpha * 255)
     constellation_overlay = Image.new("RGBA", wallpaper.size)
     constellation_overlay_draw = ImageDraw.Draw(constellation_overlay)
     for p1, p2 in observed_constellations:
@@ -106,3 +120,9 @@ def build_wallpaper(earth_file, resolution, zoom, current_date):
         ),
     )
     return wallpaper
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app=app, host="46.38.251.80", port=4026)
