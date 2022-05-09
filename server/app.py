@@ -12,50 +12,16 @@ from skyfield_wallpaper import SkyFieldWallpaper
 satelite_tz = pytz.timezone("Asia/Jayapura")
 Timezone = Enum("Timezone", ((x, x) for x in pytz.all_timezones))
 
-
-class Resolution(str, Enum):
-    UHD_4K = "4K"
-    WQHD = "WQHD"
-    WUXGA = "WUXGA"
-    HD = "HD"
-    FHD = "FHD"
-
-    @property
-    def width(self):
-        if self == Resolution.UHD_4K:
-            return 3840
-        elif self == Resolution.WQHD:
-            return 2560
-        elif self == Resolution.WUXGA:
-            return 1920
-        elif self == Resolution.HD:
-            return 1920
-        elif self == Resolution.FHD:
-            return 1366
-
-    @property
-    def height(self):
-        if self == Resolution.UHD_4K:
-            return 2160
-        elif self == Resolution.WQHD:
-            return 1440
-        elif self == Resolution.WUXGA:
-            return 1200
-        elif self == Resolution.HD:
-            return 1080
-        elif self == Resolution.FHD:
-            return 768
-
-
 app = FastAPI()
 scheduler = Scheduler()
 skyfield_wallpaper = SkyFieldWallpaper()
 
 
 @app.get("/")
-async def earth_wallpaper(
-    resolution: Resolution = Query(Resolution("4K")),
-    timezone: Timezone = Query(Timezone("Europe/Berlin")),
+def earth_wallpaper(
+    width: int = Query(..., gt=512, le=4096),
+    height: int = Query(..., gt=512, le=4096),
+    timezone: Timezone = Query(Timezone("Asia/Jayapura")),
     zoom: float = Query(0.7, ge=0.0, le=1.0),
     fov: int = Query(70, ge=30, le=180),
     stars: float = Query(0.5, ge=0.0, le=1.0),
@@ -73,7 +39,7 @@ async def earth_wallpaper(
     if not earth_file.exists():
         raise exceptions.HTTPException(404)
 
-    wallpaper = build_wallpaper(earth_file, resolution, zoom, current_date, fov, stars, constellations)
+    wallpaper = build_wallpaper(earth_file, width, height, zoom, current_date, fov, stars, constellations)
     image_data = BytesIO()
     wallpaper.save(image_data, format="png")
     return Response(image_data.getvalue(), media_type="image/png")
@@ -81,26 +47,29 @@ async def earth_wallpaper(
 
 def build_wallpaper(
     earth_file,
-    resolution: Resolution,
+    width: int,
+    height: int,
     zoom: float,
     current_date: datetime,
     fov: int,
     stars_scaling: float,
     constellation_alpha: float,
 ):
-    width, height = resolution.width, resolution.height
-    resize_size = int(zoom * min(width, height))
+    relative_size = min(width, height)
     masked_earth = Image.open(earth_file)
-    masked_earth.thumbnail((resize_size, resize_size), Image.Resampling.LANCZOS)
+    earth_resized_size = int(zoom * relative_size)
+    masked_earth.thumbnail((earth_resized_size, earth_resized_size), Image.Resampling.LANCZOS)
     wallpaper = Image.new("RGBA", (width, height), color="black")
 
     # get astro data
     observed_stars, observed_constellations = skyfield_wallpaper.stereographic_projection(current_date, width, height, fov)
 
+    relative_star_size = int(relative_size / 300)
+
     # draw dots for stars
     draw = ImageDraw.Draw(wallpaper)
     for _, star in observed_stars.iterrows():
-        s = star.s * stars_scaling  # max star radius
+        s = star.s * stars_scaling * relative_star_size # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
 
     # draw lines for constellations
@@ -108,7 +77,7 @@ def build_wallpaper(
     constellation_overlay = Image.new("RGBA", wallpaper.size)
     constellation_overlay_draw = ImageDraw.Draw(constellation_overlay)
     for p1, p2 in observed_constellations:
-        constellation_overlay_draw.line((*p1, *p2), width=1, fill=(255, 255, 255, constellation_alpha))
+        constellation_overlay_draw.line((*p1, *p2), width=relative_star_size, fill=(255, 255, 255, constellation_alpha))
     wallpaper.alpha_composite(constellation_overlay)
 
     # add earth to center
@@ -120,9 +89,3 @@ def build_wallpaper(
         ),
     )
     return wallpaper
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app=app, host="46.38.251.80", port=4026)
