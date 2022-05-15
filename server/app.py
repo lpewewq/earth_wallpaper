@@ -1,19 +1,20 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from enum import Enum
 from io import BytesIO
+
 import pytz
-import regex as re
 from fastapi import FastAPI, Query, Response, exceptions
 from PIL import Image, ImageDraw
-from enum import Enum
 
-from scheduler import Scheduler
+from common import get_file_destination
 from skyfield_wallpaper import SkyFieldWallpaper
 
-satelite_tz = pytz.timezone("Asia/Jayapura")
 Timezone = Enum("Timezone", ((x, x) for x in pytz.all_timezones))
+Timezone.get_timezone = lambda self: pytz.timezone(self.value)
+satellite_tz = Timezone("Asia/Jayapura")
+
 
 app = FastAPI()
-scheduler = Scheduler()
 skyfield_wallpaper = SkyFieldWallpaper()
 
 
@@ -21,25 +22,24 @@ skyfield_wallpaper = SkyFieldWallpaper()
 def earth_wallpaper(
     width: int = Query(..., gt=512, le=4096),
     height: int = Query(..., gt=512, le=4096),
-    timezone: Timezone = Query(Timezone("Asia/Jayapura")),
+    timezone: Timezone = Query(satellite_tz),
     zoom: float = Query(0.7, ge=0.0, le=1.0),
     fov: int = Query(70, ge=30, le=180),
     stars: float = Query(0.5, ge=0.0, le=1.0),
     constellations: float = Query(0.05, ge=0.0, le=1.0),
 ):
-    # build wallpaper
-    current_date = scheduler.current_fetch_date
-    if current_date is None:
-        raise exceptions.HTTPException(404)
-
     # parse timezone offset
-    now = datetime.now()
-    current_date -= satelite_tz.utcoffset(now) - pytz.timezone(timezone.value).utcoffset(now)
-    earth_file = scheduler.get_file_destination(current_date)
+    local_now = datetime.now()
+    dtime = datetime.utcnow()
+    dtime -= satellite_tz.get_timezone().utcoffset(local_now) - timezone.get_timezone().utcoffset(local_now)
+
+    # get earth file
+    earth_file = get_file_destination(dtime)
     if not earth_file.exists():
         raise exceptions.HTTPException(404)
 
-    wallpaper = build_wallpaper(earth_file, width, height, zoom, current_date, fov, stars, constellations)
+    # build entire wallpaper
+    wallpaper = build_wallpaper(earth_file, width, height, zoom, dtime, fov, stars, constellations)
     image_data = BytesIO()
     wallpaper.save(image_data, format="png")
     return Response(image_data.getvalue(), media_type="image/png")
@@ -50,7 +50,7 @@ def build_wallpaper(
     width: int,
     height: int,
     zoom: float,
-    current_date: datetime,
+    dtime: datetime,
     fov: int,
     stars_scaling: float,
     constellation_alpha: float,
@@ -62,14 +62,14 @@ def build_wallpaper(
     wallpaper = Image.new("RGBA", (width, height), color="black")
 
     # get astro data
-    observed_stars, observed_constellations = skyfield_wallpaper.stereographic_projection(current_date, width, height, fov)
+    observed_stars, observed_constellations = skyfield_wallpaper.stereographic_projection(dtime, width, height, fov)
 
     relative_star_size = int(relative_size / 300)
 
     # draw dots for stars
     draw = ImageDraw.Draw(wallpaper)
     for _, star in observed_stars.iterrows():
-        s = star.s * stars_scaling * relative_star_size # max star radius
+        s = star.s * stars_scaling * relative_star_size  # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
 
     # draw lines for constellations
