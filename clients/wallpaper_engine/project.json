@@ -1,0 +1,50 @@
+{
+	"contentrating" : "Everyone",
+	"description" : "Display image from an URL as your wallpaper. It is also possible to reload the image in an interval.",
+	"file" : "index.html",
+	"general" : 
+	{
+		"properties" : 
+		{
+			"reload" : 
+			{
+				"index" : 1,
+				"order" : 101,
+				"text" : "Reload",
+				"type" : "bool",
+				"value" : true
+			},
+			"reloadintervalminutes" : 
+			{
+				"condition" : "reload.value",
+				"index" : 2,
+				"order" : 102,
+				"text" : "Reload Interval (Minutes)",
+				"type" : "textinput",
+				"value" : "10"
+			},
+			"schemecolor" : 
+			{
+				"order" : 0,
+				"text" : "ui_browse_properties_scheme_color",
+				"type" : "color",
+				"value" : "0 0 0"
+			},
+			"wallpaperurl" : 
+			{
+				"index" : 0,
+				"order" : 100,
+				"text" : "Wallpaper URL",
+				"type" : "textinput",
+				"value" : "https://picsum.photos/1920/1080"
+			}
+		}
+	},
+	"preview" : "preview.jpg",
+	"tags" : [ "Unspecified" ],
+	"title" : "Remote Wallpaper",
+	"type" : "web",
+	"version" : 1,
+	"workshopid" : "2808504865",
+	"workshopurl" : "steam://url/CommunityFilePage/2808504865"
+}

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Remote Wallpaper</title>
+  <style type="text/css">
+    html,
+    body {
+      margin: 0px;
+      padding: 0px;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+</head>
+
+<body>
+  <img id="wallpaper">
+</body>
+
+<script>
+  let validated_url = null;
+  let reload_enabled = false;
+  let reload_interval_m = 0;
+  let reload_timer_id = null;
+
+  window.onload = async function () {
+    window.wallpaperPropertyListener = {
+      applyUserProperties: function (properties) {
+        if (properties.reload) {
+          reload_enabled = !!properties.reload.value;
+        }
+        if (properties.reloadintervalminutes) {
+          let parsed_interval = parseInt(properties.reloadintervalminutes.value);
+          if (!Number.isNaN(parsed_interval)) {
+            reload_interval_m = parsed_interval;
+          }
+        }
+        if (properties.wallpaperurl) {
+          try {
+            validated_url = new URL(properties.wallpaperurl.value);
+          } catch (_) {
+            window.alert("Invalid URL: " + properties.wallpaperurl.value);
+          }
+        }
+        setup();
+      }
+    };
+  };
+
+  async function setup() {
+    if (reload_enabled && reload_interval_m > 0) {
+      clearInterval(reload_timer_id);
+      let delay = Math.max(1, reload_interval_m) * 60000;
+      reload_timer_id = setInterval(load_wallpaper, delay);
+    }
+    load_wallpaper();
+  };
+
+
+  async function load_wallpaper() {
+    if (validated_url) {
+      await fetch(validated_url)
+        .then(response => response.blob())
+        .then(blob => {
+          document.getElementById('wallpaper').src = URL.createObjectURL(blob);
+        });
+    }
+  };
+</script>
+
+</html>
