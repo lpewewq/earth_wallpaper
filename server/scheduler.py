@@ -30,12 +30,6 @@ def download_job():
     """
     dtime = datetime.utcnow() - timedelta(minutes=10)
 
-    # check if image is still up to date
-    file_destination = get_file_destination(dtime)
-    if file_destination.exists() and datetime.fromtimestamp(file_destination.stat().st_mtime).day == dtime.day:
-        log.log(logging.INFO, f"Still up to date {file_destination}")
-        return
-
     try:
         image = ptree.download_full_disk(dtime)
     except UnidentifiedImageError:
@@ -52,6 +46,7 @@ def download_job():
     image = ImageOps.fit(image, mask.size, centering=(0.5, 0.5))
     image.putalpha(mask)
     log.log(logging.INFO, "Save image...")
+    file_destination = get_file_destination(dtime)
     image.save(file_destination)
     log.log(logging.INFO, "... successfull!")
     gc.collect()
