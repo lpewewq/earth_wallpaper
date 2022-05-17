@@ -1,5 +1,4 @@
 import atexit
-import gc
 import logging
 import sys
 from datetime import datetime, timedelta
@@ -31,25 +30,35 @@ def download_job():
     dtime = datetime.utcnow() - timedelta(minutes=10)
 
     try:
-        image = ptree.download_full_disk(dtime)
+        earth = ptree.download_full_disk(dtime)
     except UnidentifiedImageError:
         log.log(logging.WARNING, "Could not download full disk image")
         return
 
     # preprocess image: resize and mask earth
-    log.log(logging.INFO, "Resize image...")
+    log.log(logging.INFO, "Resize earth...")
     size = (2160, 2160)
-    image = image.resize(size, Image.Resampling.LANCZOS)
-    log.log(logging.INFO, "Mask image...")
+    earth = earth.resize(size, Image.Resampling.LANCZOS)
+    log.log(logging.INFO, "Mask earth...")
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).ellipse((0, 0) + size, fill=255)
-    image = ImageOps.fit(image, mask.size, centering=(0.5, 0.5))
-    image.putalpha(mask)
-    log.log(logging.INFO, "Save image...")
-    file_destination = get_file_destination(dtime)
-    image.save(file_destination)
+    earth = ImageOps.fit(earth, mask.size, centering=(0.5, 0.5))
+    earth.putalpha(mask)
+
+    log.log(logging.INFO, "Composite earth and night background...")
+    # add day earth to background
+    for y in range(size[0]):
+        for x in range(size[1]):
+            r, g, b, _ = earth.getpixel((x, y))
+            # alpha-out dark side of earth
+            a = min(255, 10 * max(r, g, b))
+            earth.putpixel((x, y), (r, g, b, a))
+    background = Image.open("night_background.png")
+    background.alpha_composite(earth)
+
+    log.log(logging.INFO, "Save earth...")
+    background.save(get_file_destination(dtime))
     log.log(logging.INFO, "... successfull!")
-    gc.collect()
 
 
 if __name__ == "__main__":
