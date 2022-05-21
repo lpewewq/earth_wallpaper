@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "80:80"
+    volumes:
+      - image_data:/image_data:ro
+
+  daemon:
+    build: ./daemon
+    env_file:
+      - ./daemon/.env
+    volumes:
+      - image_data:/image_data
+
+volumes:
+  image_data: {}

@@ -3,9 +3,12 @@ from pathlib import Path
 
 
 def get_data_directory(dtime: datetime) -> Path:
-    directory = Path(f"data/{dtime.hour:02d}/{10 * (dtime.minute // 10):02d}")
+    root = Path("/")
+    directory = root.joinpath("image_data")
+    directory = directory.joinpath(f"{dtime.hour:02d}")
+    directory = directory.joinpath(f"{10 * (dtime.minute // 10):02d}")
     directory.mkdir(parents=True, exist_ok=True)
-    return Path.cwd().joinpath(directory)
+    return directory
 
 
 def get_earth_path(dtime: datetime) -> Path:
