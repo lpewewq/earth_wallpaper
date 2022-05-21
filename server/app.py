@@ -4,9 +4,9 @@ from io import BytesIO
 
 import pytz
 from fastapi import FastAPI, Query, Response, exceptions
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
-from common import get_file_destination
+from common import get_earth_path
 from skyfield_wallpaper import SkyFieldWallpaper
 
 Timezone = Enum("Timezone", ((x, x) for x in pytz.all_timezones))
@@ -34,7 +34,7 @@ def earth_wallpaper(
     dtime -= satellite_tz.get_timezone().utcoffset(local_now) - timezone.get_timezone().utcoffset(local_now)
 
     # get earth file
-    earth_file = get_file_destination(dtime)
+    earth_file = get_earth_path(dtime)
     if not earth_file.exists():
         raise exceptions.HTTPException(404)
 
@@ -71,6 +71,7 @@ def build_wallpaper(
     for _, star in observed_stars.iterrows():
         s = star.s * stars_scaling * relative_star_size  # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
+    wallpaper = wallpaper.filter(ImageFilter.GaussianBlur(radius=1))
 
     # draw lines for constellations
     constellation_alpha = int(constellation_alpha * 255)

@@ -69,7 +69,7 @@ class SkyFieldWallpaper:
 
         # scale to width/height and flip y axis
         max_dim = max(width, height)
-        observed_stars.s *= max_dim * 0.002  # max star radius in pixel
+        observed_stars.s *= max_dim * 0.0005  # max star radius in pixel
         observed_stars.x = max_dim * (observed_stars.x + projection_limit) / (2 * projection_limit)
         observed_stars.y = max_dim * (projection_limit - observed_stars.y) / (2 * projection_limit)
 
