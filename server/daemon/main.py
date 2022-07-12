@@ -56,7 +56,7 @@ def preprocess(dtime: datetime, earth_path: Path, night_ir_path: Path):
     if night_ir_path:
         log.info("Compose night background and IR clouds...")
         night_ir = Image.open(night_ir_path)
-        night_ir = ImageEnhance.Brightness(night_ir).enhance(0.01)
+        night_ir = ImageEnhance.Brightness(night_ir).enhance(0.02)
         background.alpha_composite(night_ir)
 
     # preprocess image: resize and mask earth
@@ -83,7 +83,7 @@ def preprocess(dtime: datetime, earth_path: Path, night_ir_path: Path):
     log.info(f"Saved {earth_path}")
 
 
-@scheduler.scheduled_job(trigger=CronTrigger(minute=",".join(str(i) for i in range(5, 60, 10))), max_instances=3)
+@scheduler.scheduled_job(trigger=CronTrigger(minute=",".join(str(i) for i in range(5, 60, 10))), max_instances=1)
 def download_job():
     """
     Download latest full disk image of earth
@@ -92,12 +92,12 @@ def download_job():
 
     try:
         fldk_path, night_cloud_paths = ptree.download_all(dtime)
+        night_clouds_file_path = None
 
         # verify full disk image
         Image.open(fldk_path).verify()
 
         # generate night IR clouds
-        night_clouds_file_path = None
         if len(night_cloud_paths) > 0 and all(night_cloud_paths):
             try:
                 data_directory_path = get_data_directory(dtime)
@@ -110,6 +110,8 @@ def download_job():
                 scene_re.save_dataset("night_ir_alpha", str(night_clouds_file_path))
             except UnicodeDecodeError as e:
                 log.warning(f"Night cloud data decode error! {e}")
+            except ValueError as e:
+                log.warning(f"Night cloud data value error! {e}")
 
         preprocess(dtime, fldk_path, night_clouds_file_path)
     except Exception as e:

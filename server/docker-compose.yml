@@ -3,10 +3,11 @@ version: "3.9"
 services:
   api:
     build: ./api
-    ports:
-      - "80:80"
     volumes:
       - image_data:/image_data:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.earth-wallpaper.rule=Host(`earth.${DOMAINNAME}`)
 
   daemon:
     build: ./daemon
