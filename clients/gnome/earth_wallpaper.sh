@@ -14,6 +14,7 @@ do
     if test "$?" == 0 && test "$(file -b --mime-typ $tmp_earth_wallpaper)" == 'image/png'; then
         mv $tmp_earth_wallpaper $earth_wallpaper
         /usr/bin/gsettings set org.gnome.desktop.background picture-uri file:///${earth_wallpaper}
+        /usr/bin/gsettings set org.gnome.desktop.background picture-uri-dark file:///${earth_wallpaper}
         let "retries=0"
     else
         rm $tmp_earth_wallpaper
