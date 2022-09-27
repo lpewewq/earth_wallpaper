@@ -65,5 +65,5 @@ class PTree:
                 paths.append(hsd_dir_path.joinpath(Path(f"HS_H08_{timecode}_B{band:02d}_FLDK_R20_S{part:02d}10.DAT.bz2")))
         # Download concurrently
         log.debug(f"Download {len(paths)} files...")
-        results = ThreadPool(len(paths)).map(partial(self.download_path, dtime=dtime), paths)
+        results = ThreadPool(16).map(partial(self.download_path, dtime=dtime), paths)
         return results[0], results[1:]

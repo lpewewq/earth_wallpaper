@@ -49,7 +49,7 @@ area = AreaDefinition(
 )
 
 
-def preprocess(dtime: datetime, earth_path: Path, night_ir_path: Path):
+def preprocess(result_path: Path, earth_path: Path, night_ir_path: Path):
     background = Image.open("BlackMarble_2016_Himawari8_preprocessed.png")
 
     # add night clouds to background
@@ -78,9 +78,8 @@ def preprocess(dtime: datetime, earth_path: Path, night_ir_path: Path):
             earth.putpixel((x, y), (r, g, b, a))
     background.alpha_composite(earth)
 
-    earth_path = get_earth_path(dtime)
-    background.save(earth_path)
-    log.info(f"Saved {earth_path}")
+    background.save(result_path)
+    log.info(f"Saved {result_path}")
 
 
 @scheduler.scheduled_job(trigger=CronTrigger(minute=",".join(str(i) for i in range(5, 60, 10))), max_instances=1)
@@ -89,6 +88,7 @@ def download_job():
     Download latest full disk image of earth
     """
     dtime = datetime.utcnow() - timedelta(minutes=15)
+    earth_path = get_earth_path(dtime)
 
     try:
         fldk_path, night_cloud_paths = ptree.download_all(dtime)
@@ -113,12 +113,12 @@ def download_job():
             except ValueError as e:
                 log.warning(f"Night cloud data value error! {e}")
 
-        preprocess(dtime, fldk_path, night_clouds_file_path)
+        preprocess(earth_path, fldk_path, night_clouds_file_path)
     except Exception as e:
         log.exception(f"Image composition failed! {e}")
     finally:
-        for path in [fldk_path, night_clouds_file_path] + night_cloud_paths:
-            if path and path.is_file:
+        for path in earth_path.parent.iterdir():
+            if path != earth_path and path.is_file:
                 path.unlink(missing_ok=True)
         log.info("Removed downloaded files!")
 
