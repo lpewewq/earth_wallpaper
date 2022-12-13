@@ -58,11 +58,11 @@ class PTree:
         paths = []
         hsd_dir_path, timecode = self._get_hsd_dir_path(dtime)
         # high resolution color image of full disk
-        paths.append(hsd_dir_path.joinpath(Path(f"PI_H08_{timecode}_TRC_FLDK_R10_PGPFD.png")))
+        paths.append(hsd_dir_path.joinpath(Path(f"PI_H09_{timecode}_TRC_FLDK_R10_PGPFD.png")))
         # IR bands for night clouds
         for band in [7, 13, 15]:
             for part in range(1, 11):
-                paths.append(hsd_dir_path.joinpath(Path(f"HS_H08_{timecode}_B{band:02d}_FLDK_R20_S{part:02d}10.DAT.bz2")))
+                paths.append(hsd_dir_path.joinpath(Path(f"HS_H09_{timecode}_B{band:02d}_FLDK_R20_S{part:02d}10.DAT.bz2")))
         # Download concurrently
         log.debug(f"Download {len(paths)} files...")
         results = ThreadPool(16).map(partial(self.download_path, dtime=dtime), paths)
