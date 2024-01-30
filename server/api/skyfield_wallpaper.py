@@ -5,7 +5,7 @@ import numpy as np
 
 
 class SkyFieldWallpaper:
-    himawari_8_tle_url = f"https://celestrak.com/satcat/tle.php?CATNR=40267"
+    himawari_9_tle_url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR=41836"
     constellations_url = (
         "https://raw.githubusercontent.com/Stellarium/stellarium/master" "/skycultures/western_SnT/constellationship.fab"
     )
@@ -36,7 +36,7 @@ class SkyFieldWallpaper:
     def load_himawari_tle(self):
         reload = not hasattr(self, "satellite") or self.satellite is None or abs(self.satellite.epoch - self.ts.now()) > 14
         print("Load himawari TLE file, reload =", reload)
-        data = load.tle_file(self.himawari_8_tle_url, filename="himawari-8.txt", reload=reload)
+        data = load.tle_file(self.himawari_9_tle_url, filename="himawari-9.txt", reload=reload)
         if len(data) > 0:
             return data[0]
         else:
