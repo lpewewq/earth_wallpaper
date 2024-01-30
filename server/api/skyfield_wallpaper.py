@@ -6,9 +6,10 @@ import numpy as np
 
 class SkyFieldWallpaper:
     himawari_9_tle_url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR=41836"
-    constellations_url = (
-        "https://raw.githubusercontent.com/Stellarium/stellarium/master" "/skycultures/western_SnT/constellationship.fab"
-    )
+    # TODO: 404 constellation file
+    # constellations_url = (
+    #     "https://raw.githubusercontent.com/Stellarium/stellarium/master" "/skycultures/western_SnT/constellationship.fab"
+    # ) 
 
     def __init__(self):
         self.ts = load.timescale()
@@ -26,9 +27,9 @@ class SkyFieldWallpaper:
             ) ** 2.0
 
         # load constellations data
-        with load.open(self.constellations_url) as f:
-            constellations = stellarium.parse_constellations(f)
-        self.constellation_edges = [edge for _, edges in constellations for edge in edges]
+        # with load.open(self.constellations_url) as f:
+        #     constellations = stellarium.parse_constellations(f)
+        # self.constellation_edges = [edge for _, edges in constellations for edge in edges]
 
         # load himawari tle
         self.satellite = self.load_himawari_tle()
@@ -80,10 +81,11 @@ class SkyFieldWallpaper:
             observed_stars.x -= (max_dim - width) / 2
 
         # constellations
-        observed_constellations = [
-            (observed_stars[["x", "y"]].loc[e1].values, observed_stars[["x", "y"]].loc[e2].values)
-            for e1, e2 in self.constellation_edges
-            if e1 in observed_stars.index.values and e2 in observed_stars.index.values
-        ]
+        observed_constellations = []
+        # observed_constellations = [
+        #     (observed_stars[["x", "y"]].loc[e1].values, observed_stars[["x", "y"]].loc[e2].values)
+        #     for e1, e2 in self.constellation_edges
+        #     if e1 in observed_stars.index.values and e2 in observed_stars.index.values
+        # ]
 
         return observed_stars, observed_constellations
