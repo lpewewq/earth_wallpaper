@@ -11,12 +11,12 @@ from pyresample import AreaDefinition
 from satpy import Scene, find_files_and_readers
 
 from common import get_data_directory, get_earth_path
-from ptree import PTree
+from .ptree import PTree
 
 # full disk image is 11k x 11k pixel
 Image.MAX_IMAGE_PIXELS = 11e3**2
 
-logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 log = logging.getLogger("scheduler")
 
 scheduler = BlockingScheduler()
@@ -88,7 +88,10 @@ def download_job():
     Download latest full disk image of earth
     """
     dtime = datetime.utcnow() - timedelta(minutes=15)
-    earth_path = get_earth_path(dtime)
+    earth_path = get_earth_path(dtime, mkdir=True)
+    if earth_path is None:
+        log.error(f"Earth path can not be found!")
+        return
 
     try:
         fldk_path, night_cloud_paths = ptree.download_all(dtime)
@@ -101,13 +104,14 @@ def download_job():
         if len(night_cloud_paths) > 0 and all(night_cloud_paths):
             try:
                 data_directory_path = get_data_directory(dtime)
-                scene_files = find_files_and_readers(base_dir=str(data_directory_path), reader="ahi_hsd")
-                scene = Scene(filenames=scene_files, reader="ahi_hsd")
-                scene.load(scene.available_dataset_names())
-                scene_re = scene.resample(area)
-                scene_re.load(["night_ir_alpha"])
-                night_clouds_file_path = data_directory_path.joinpath("night_clouds.png")
-                scene_re.save_dataset("night_ir_alpha", str(night_clouds_file_path))
+                if data_directory_path is not None:
+                    scene_files = find_files_and_readers(base_dir=data_directory_path, reader="ahi_hsd")
+                    scene = Scene(filenames=scene_files, reader="ahi_hsd")
+                    scene.load(scene.available_dataset_names())
+                    scene_re = scene.resample(area)
+                    scene_re.load(["night_ir_alpha"])
+                    night_clouds_file_path = data_directory_path.joinpath("night_clouds.png")
+                    scene_re.save_dataset("night_ir_alpha", str(night_clouds_file_path))
             except UnicodeDecodeError as e:
                 log.warning(f"Night cloud data decode error! {e}")
             except ValueError as e:

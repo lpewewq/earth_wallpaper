@@ -40,14 +40,18 @@ class PTree:
         )
         return (directory_path, timecode)
 
-    def download_path(self, path: Path, dtime: datetime) -> Path:
+    def download_path(self, path: Path, dtime: datetime) -> (Path | None):
+        file_destination = get_data_directory(dtime)
+        if file_destination is None:
+            return None
+        file_destination = file_destination.joinpath(path.name)
+
         try:
             data = self._download(path)
         except ftplib.all_errors:
             log.warning(f"Download failed! {path}")
             return None
 
-        file_destination = get_data_directory(dtime).joinpath(path.name)
         log.debug(f"Save file {file_destination}")
         with open(file_destination, "wb") as outfile:
             outfile.write(data.getbuffer())
