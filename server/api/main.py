@@ -68,10 +68,9 @@ def build_wallpaper(
     # draw sun
     sun_radius = sun_size_coeff * earth_resized_size / 2
     draw.ellipse((sun_position_x - sun_radius, sun_position_y - sun_radius, sun_position_x + sun_radius, sun_position_y + sun_radius), fill="white", outline="white")
-    wallpaper = wallpaper.filter(ImageFilter.GaussianBlur(radius=2))
 
     # draw dots for stars
-    relative_star_size = int(relative_size / 300)
+    relative_star_size = int(relative_size / (3 * fov))
     for _, star in observed_stars.iterrows():
         s = star.s * stars_scaling * relative_star_size  # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
