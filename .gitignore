@@ -1,1 +1,8 @@
 .env
+.localenv
+venv
+*.pyc
+image_data
+de421.bsp
+himawari-9.txt
+hip_main.dat
