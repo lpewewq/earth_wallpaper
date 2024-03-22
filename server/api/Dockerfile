@@ -1,15 +1,14 @@
-FROM python:3.8-slim
+FROM python:3.10-slim
 
-WORKDIR /api
+WORKDIR /app
 
-COPY requirements.txt .
+COPY common common
+COPY api api
 
-RUN pip install -r requirements.txt
+RUN pip install -r api/requirements.txt
 
-COPY main.py .
-COPY common.py .
-COPY skyfield_wallpaper.py .
+ENV DATA_DIRECTORY=${DATA_DIRECTORY}
 
 EXPOSE 80
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "80"]

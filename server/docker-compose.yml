@@ -1,20 +1,27 @@
 version: "3.9"
+name: earth_wallpaper
 
 services:
   api:
-    build: ./api
+    build:
+      context: ./
+      dockerfile: ./api/Dockerfile
+    env_file:
+      - .env
     volumes:
-      - image_data:/image_data:ro
+      - image_data:${DATA_DIRECTORY?error}:ro
     labels:
       - traefik.enable=true
-      - traefik.http.routers.earth-wallpaper.rule=Host(`earth.${DOMAINNAME}`)
+      - traefik.http.routers.earth-wallpaper.rule=Host(`earth.${DOMAINNAME?error}`)
 
   daemon:
-    build: ./daemon
+    build:
+      context: ./
+      dockerfile: ./daemon/Dockerfile
     env_file:
-      - ./daemon/.env
+      - .env
     volumes:
-      - image_data:/image_data
+      - image_data:${DATA_DIRECTORY?error}
 
 volumes:
   image_data: {}

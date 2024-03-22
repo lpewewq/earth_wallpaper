@@ -1,17 +1,14 @@
-FROM python:3.8-slim
+FROM python:3.10-slim
 
-WORKDIR /daemon
+WORKDIR /app
 
-COPY requirements.txt .
+COPY common common
+COPY daemon daemon
 
-RUN pip install -r requirements.txt
-
-COPY main.py .
-COPY common.py .
-COPY ptree.py .
-COPY BlackMarble_2016_Himawari8_preprocessed.png .
+RUN pip install -r daemon/requirements.txt
 
 ENV PTREE_USERNAME=${PTREE_USERNAME}
 ENV PTREE_PASSWORD=${PTREE_PASSWORD}
+ENV DATA_DIRECTORY=${DATA_DIRECTORY}
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "daemon.main"]
