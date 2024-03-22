@@ -61,6 +61,14 @@ class SkyFieldWallpaper:
         star_positions = satellite_position.observe(Star.from_dataframe(self.stars))
         observed_stars["x"], observed_stars["y"] = projection(star_positions)
 
+        # observe sun
+        sun_position = satellite_position.observe(self.eph['Sun'])
+        sun_position_x, sun_position_y = projection(sun_position)
+        satellite_earth_distance = satellite_position.observe(self.eph['EARTH']).distance().km
+        satellite_sun_distance = satellite_position.observe(self.eph['SUN']).distance().km
+        radius_coeff = 109.167807455 # Sun radius / Earth radius
+        sun_size_coeff = radius_coeff * satellite_earth_distance / satellite_sun_distance
+
         # filter stars outside FOV
         angle = np.pi - fov / 360.0 * np.pi
         projection_limit = np.sin(angle) / (1.0 - np.cos(angle))
@@ -73,12 +81,16 @@ class SkyFieldWallpaper:
         observed_stars.s *= max_dim * 0.0005  # max star radius in pixel
         observed_stars.x = max_dim * (observed_stars.x + projection_limit) / (2 * projection_limit)
         observed_stars.y = max_dim * (projection_limit - observed_stars.y) / (2 * projection_limit)
+        sun_position_x = max_dim * (sun_position_x + projection_limit) / (2 * projection_limit)
+        sun_position_y = max_dim * (projection_limit - sun_position_y) / (2 * projection_limit)
 
         # correct positions
         if width == max_dim:
             observed_stars.y -= (max_dim - height) / 2
+            sun_position_y -= (max_dim - height) / 2
         else:
             observed_stars.x -= (max_dim - width) / 2
+            sun_position_x -= (max_dim - height) / 2
 
         # constellations
         observed_constellations = []
@@ -88,4 +100,4 @@ class SkyFieldWallpaper:
         #     if e1 in observed_stars.index.values and e2 in observed_stars.index.values
         # ]
 
-        return observed_stars, observed_constellations
+        return observed_stars, observed_constellations, (sun_position_x, sun_position_y, sun_size_coeff)

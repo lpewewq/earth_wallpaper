@@ -7,7 +7,7 @@ from fastapi import FastAPI, Query, Response, exceptions
 from PIL import Image, ImageDraw, ImageFilter
 
 from common import get_earth_path
-from skyfield_wallpaper import SkyFieldWallpaper
+from .skyfield_wallpaper import SkyFieldWallpaper
 
 Timezone = Enum("Timezone", ((x, x) for x in pytz.all_timezones))
 Timezone.get_timezone = lambda self: pytz.timezone(self.value)
@@ -20,8 +20,8 @@ skyfield_wallpaper = SkyFieldWallpaper()
 
 @app.get("/")
 def earth_wallpaper(
-    width: int = Query(..., gt=512, le=4096),
-    height: int = Query(..., gt=512, le=4096),
+    width: int = Query(..., ge=500, le=4096),
+    height: int = Query(..., ge=500, le=4096),
     timezone: Timezone = Query(satellite_tz),
     zoom: float = Query(0.7, ge=0.0, le=1.0),
     fov: int = Query(70, ge=30, le=180),
@@ -35,7 +35,7 @@ def earth_wallpaper(
 
     # get earth file
     earth_file = get_earth_path(dtime)
-    if not earth_file.exists():
+    if earth_file is None or not earth_file.exists():
         raise exceptions.HTTPException(404)
 
     # build entire wallpaper
@@ -62,12 +62,16 @@ def build_wallpaper(
     wallpaper = Image.new("RGBA", (width, height), color="black")
 
     # get astro data
-    observed_stars, observed_constellations = skyfield_wallpaper.stereographic_projection(dtime, width, height, fov)
+    observed_stars, observed_constellations, (sun_position_x, sun_position_y, sun_size_coeff) = skyfield_wallpaper.stereographic_projection(dtime, width, height, fov)
+    draw = ImageDraw.Draw(wallpaper)
 
-    relative_star_size = int(relative_size / 300)
+    # draw sun
+    sun_radius = sun_size_coeff * earth_resized_size / 2
+    draw.ellipse((sun_position_x - sun_radius, sun_position_y - sun_radius, sun_position_x + sun_radius, sun_position_y + sun_radius), fill="white", outline="white")
+    wallpaper = wallpaper.filter(ImageFilter.GaussianBlur(radius=2))
 
     # draw dots for stars
-    draw = ImageDraw.Draw(wallpaper)
+    relative_star_size = int(relative_size / 300)
     for _, star in observed_stars.iterrows():
         s = star.s * stars_scaling * relative_star_size  # max star radius
         draw.ellipse((star.x - s, star.y - s, star.x + s, star.y + s), fill="white", outline="white")
